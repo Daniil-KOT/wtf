@@ -18,7 +18,7 @@ void DebugPrint(const char *Format, const Args_t &...args) {
   if constexpr (LoggingOn) {
     fmt::print("tlv_server: ");
     fmt::print(fmt::runtime(Format), args...);
-  }
+  } 
 }
 
 struct Packet_t {

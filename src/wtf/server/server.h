@@ -26,7 +26,7 @@ using VecSetPair = std::pair<std::vector<Gva_t>, tsl::robin_set<Gva_t>>;
 
 class ServerStats_t {
 
-  //
+  // 
   // If we're asked to print stats and it hasn't been at least 10 seconds since
   // the last refresh we won't display them.
   //

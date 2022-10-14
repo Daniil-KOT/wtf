@@ -16,7 +16,7 @@ void DebugPrint(const char *Format, const Args_t &...args) {
     fmt::print("Hevd: ");
     fmt::print(fmt::runtime(Format), args...);
   }
-}
+} 
 
 bool InsertTestcase(const uint8_t *Buffer, const size_t BufferSize) {
   if (BufferSize < sizeof(uint32_t)) {

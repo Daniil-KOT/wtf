@@ -15,7 +15,7 @@ constexpr bool LoggingOn = false;
 
 template <typename... Args_t>
 void DebugPrint(const char *Format, const Args_t &...args) {
-  if constexpr (LoggingOn) {
+  if constexpr (LoggingOn) { 
     fmt::print("Test: ");
     fmt::print(fmt::runtime(Format), args...);
   }

@@ -24,7 +24,7 @@ std::string LibfuzzerMutator_t::GetNewTestcase(const Corpus_t &Corpus) {
   // If we get here, it means that we are ready to mutate.
   // First thing we do is to grab a seed.
   //
-
+ 
   const Testcase_t *Testcase = Corpus.PickTestcase();
   if (!Testcase) {
     fmt::print("The corpus is empty, exiting\n");

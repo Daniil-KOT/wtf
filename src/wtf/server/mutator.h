@@ -25,7 +25,7 @@ class LibfuzzerMutator_t : public Mutator_t {
   std::unique_ptr<uint8_t[]> ScratchBuffer__;
   span_u8 ScratchBuffer_;
   fuzzer::Random Rand_;
-  fuzzer::MutationDispatcher Mut_;
+  fuzzer::MutationDispatcher Mut_; 
   std::unique_ptr<fuzzer::Unit> CrossOverWith_;
   size_t TestcaseMinSize_ = 0;
   size_t TestcaseMaxSize_ = 0;

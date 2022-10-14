@@ -29,7 +29,7 @@ ProtocolFromString(const std::string_view ProtoString) {
 }
 
 SocketType_t SocketTypeFromProtocol(const Protocol_t Protocol) {
-  switch (Protocol) {
+  switch (Protocol) { 
   case Protocol_t::Tcp: {
     return SocketType_t::Stream;
   }

@@ -6,7 +6,7 @@
 #include <iomanip>
 #include "crash_detection_umode.h"
 #include "../server/mutator.h"
-
+ 
 namespace fs = std::filesystem;
 
 namespace Dummy {

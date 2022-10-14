@@ -29,7 +29,7 @@ struct WSAInitializer_t {
 };
 
 static WSAInitializer_t WSAInitializer;
-using SocketFd_t = SOCKET;
+using SocketFd_t = SOCKET; 
 
 static void CloseSocket(const SocketFd_t Fd) { closesocket(Fd); }
 static int SocketError() { return WSAGetLastError(); }

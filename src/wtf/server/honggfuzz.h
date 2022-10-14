@@ -22,7 +22,7 @@ namespace honggfuzz {
 #define _HF_INPUT_MAX_SIZE (1024ULL * 1024ULL)
 
 static void wmb() {}
-static void LOG_F(const char *, ...) { std::abort(); }
+static void LOG_F(const char *, ...) { std::abort(); } 
 
 struct dynfile_t {
   size_t size;
