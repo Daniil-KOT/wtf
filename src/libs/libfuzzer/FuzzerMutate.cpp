@@ -185,13 +185,13 @@ namespace fuzzer {
         return Special[Rand(sizeof(Special) - 1)];
     }
 
-    size_t MutationDispatcher::Mutate_Custom(uint8_t* Data, size_t Size,
-        size_t MaxSize) {
+    size_t MutationDispatcher::Mutate_Custom(uint8_t* Data, size_t Size, 
+                                             size_t MinSize, size_t MaxSize) {
         return EF->LLVMFuzzerCustomMutator(Data, Size, MaxSize, (unsigned int)Rand.Rand());
     }
 
     size_t MutationDispatcher::Mutate_CustomCrossOver(uint8_t* Data, size_t Size,
-        size_t MaxSize) {
+                                                      size_t MinSize, size_t MaxSize) {
         if (Size == 0)
             return 0;
         if (!CrossOverWith) return 0;
@@ -202,7 +202,7 @@ namespace fuzzer {
         auto& U = CustomCrossOverInPlaceHere;
         size_t NewSize = EF->LLVMFuzzerCustomCrossOver(
             Data, Size, Other.data(), Other.size(), U.data(), U.size(), (unsigned int)Rand.Rand());
-        if (!NewSize)
+        if (!NewSize || NewSize < MinSize)
             return 0;
         assert(NewSize <= MaxSize && "CustomCrossOver returned overisized unit");
         memcpy(Data, U.data(), NewSize);
@@ -210,7 +210,7 @@ namespace fuzzer {
     }
 
     size_t MutationDispatcher::Mutate_ShuffleBytes(uint8_t* Data, size_t Size,
-        size_t MaxSize) {
+                                                   size_t MinSize, size_t MaxSize) {
         if (Size > MaxSize || Size == 0) return 0;
         size_t ShuffleAmount =
             Rand(std::min(Size, (size_t)8)) + 1; // [1,8] and <= Size.
@@ -221,10 +221,11 @@ namespace fuzzer {
     }
 
     size_t MutationDispatcher::Mutate_EraseBytes(uint8_t* Data, size_t Size,
-        size_t MaxSize) {
+                                                 size_t MinSize, size_t MaxSize) {
         if (Size <= 1) return 0;
         size_t N = Rand(Size / 2) + 1;
         assert(N < Size);
+        if (Size - N < MinSize) return 0;
         size_t Idx = Rand(Size - N + 1);
         // Erase Data[Idx:Idx+N].
         memmove(Data + Idx, Data + Idx + N, Size - Idx - N);
@@ -233,7 +234,7 @@ namespace fuzzer {
     }
 
     size_t MutationDispatcher::Mutate_InsertByte(uint8_t* Data, size_t Size,
-        size_t MaxSize) {
+                                                 size_t MinSize, size_t MaxSize) {
         if (Size >= MaxSize) return 0;
         size_t Idx = Rand(Size + 1);
         // Insert new value at Data[Idx].
@@ -243,8 +244,9 @@ namespace fuzzer {
     }
 
     size_t MutationDispatcher::Mutate_InsertRepeatedBytes(uint8_t* Data,
-        size_t Size,
-        size_t MaxSize) {
+                                                          size_t Size,
+                                                          size_t MinSize,
+                                                          size_t MaxSize) {
         const size_t kMinBytesToInsert = 3;
         if (Size + kMinBytesToInsert >= MaxSize) return 0;
         size_t MaxBytesToInsert = std::min(MaxSize - Size, (size_t)128);
@@ -261,7 +263,7 @@ namespace fuzzer {
     }
 
     size_t MutationDispatcher::Mutate_ChangeByte(uint8_t* Data, size_t Size,
-        size_t MaxSize) {
+                                                 size_t MinSize, size_t MaxSize) {
         if (Size > MaxSize) return 0;
         size_t Idx = Rand(Size);
         Data[Idx] = RandCh(Rand);
@@ -269,7 +271,7 @@ namespace fuzzer {
     }
 
     size_t MutationDispatcher::Mutate_ChangeBit(uint8_t* Data, size_t Size,
-        size_t MaxSize) {
+                                                size_t MinSize, size_t MaxSize) {
         if (Size > MaxSize) return 0;
         size_t Idx = Rand(Size);
         Data[Idx] ^= 1 << Rand(8);
@@ -277,14 +279,15 @@ namespace fuzzer {
     }
 
     size_t MutationDispatcher::Mutate_AddWordFromManualDictionary(uint8_t* Data,
-        size_t Size,
-        size_t MaxSize) {
-        return AddWordFromDictionary(ManualDictionary, Data, Size, MaxSize);
+                                                                  size_t Size,
+                                                                  size_t MinSize,
+                                                                  size_t MaxSize) {
+        return AddWordFromDictionary(ManualDictionary, Data, Size, MinSize, MaxSize);
     }
 
     size_t MutationDispatcher::ApplyDictionaryEntry(uint8_t* Data, size_t Size,
-        size_t MaxSize,
-        DictionaryEntry& DE) {
+                                                    size_t MaxSize,
+                                                    DictionaryEntry& DE) {
         const Word& W = DE.GetW();
         bool UsePositionHint = DE.HasPositionHint() &&
             DE.GetPositionHint() + W.size() < Size &&
@@ -301,6 +304,7 @@ namespace fuzzer {
             size_t Idx = UsePositionHint ? DE.GetPositionHint() : Rand(Size - W.size());
             memcpy(Data + Idx, W.data(), W.size());
         }
+        
         return Size;
     }
 
@@ -310,11 +314,10 @@ namespace fuzzer {
     // It first tries to find one of the arguments (possibly swapped) in the
     // input and if it succeeds it creates a DE with a position hint.
     // Otherwise it creates a DE with one of the arguments w/o a position hint.
-    DictionaryEntry MutationDispatcher::MakeDictionaryEntryFromCMP(
-        const void* Arg1, const void* Arg2,
-        const void* Arg1Mutation, const void* Arg2Mutation,
-        size_t ArgSize, const uint8_t* Data,
-        size_t Size) {
+    DictionaryEntry MutationDispatcher::MakeDictionaryEntryFromCMP(const void* Arg1, const void* Arg2,
+                                                                   const void* Arg1Mutation, const void* Arg2Mutation,
+                                                                   size_t ArgSize, const uint8_t* Data,
+                                                                   size_t Size) {
         bool HandleFirst = Rand.RandBool();
         const void* ExistingBytes, * DesiredBytes;
         Word W;
@@ -343,24 +346,21 @@ namespace fuzzer {
 
 
     template <class T>
-    DictionaryEntry MutationDispatcher::MakeDictionaryEntryFromCMP(
-        T Arg1, T Arg2, const uint8_t* Data, size_t Size) {
+    DictionaryEntry MutationDispatcher::MakeDictionaryEntryFromCMP(T Arg1, T Arg2, const uint8_t* Data, size_t Size) {
         if (Rand.RandBool()) Arg1 = Bswap(Arg1);
         if (Rand.RandBool()) Arg2 = Bswap(Arg2);
         T Arg1Mutation = Arg1 + Rand(-1, 1);
         T Arg2Mutation = Arg2 + Rand(-1, 1);
         return MakeDictionaryEntryFromCMP(&Arg1, &Arg2, &Arg1Mutation, &Arg2Mutation,
-            sizeof(Arg1), Data, Size);
+                                          sizeof(Arg1), Data, Size);
     }
 
-    DictionaryEntry MutationDispatcher::MakeDictionaryEntryFromCMP(
-        const Word& Arg1, const Word& Arg2, const uint8_t* Data, size_t Size) {
+    DictionaryEntry MutationDispatcher::MakeDictionaryEntryFromCMP(const Word& Arg1, const Word& Arg2, const uint8_t* Data, size_t Size) {
         return MakeDictionaryEntryFromCMP(Arg1.data(), Arg2.data(), Arg1.data(),
             Arg2.data(), Arg1.size(), Data, Size);
     }
 
-    size_t MutationDispatcher::Mutate_AddWordFromTORC(
-        uint8_t* Data, size_t Size, size_t MaxSize) {
+    size_t MutationDispatcher::Mutate_AddWordFromTORC(uint8_t* Data, size_t Size, size_t MinSize, size_t MaxSize) {
         return 0;
 #if 0
         Word W;
@@ -400,18 +400,17 @@ namespace fuzzer {
 #endif
 }
 
-    size_t MutationDispatcher::Mutate_AddWordFromPersistentAutoDictionary(
-        uint8_t* Data, size_t Size, size_t MaxSize) {
-        return AddWordFromDictionary(PersistentAutoDictionary, Data, Size, MaxSize);
+    size_t MutationDispatcher::Mutate_AddWordFromPersistentAutoDictionary(uint8_t* Data, size_t Size, size_t MinSize, size_t MaxSize) {
+        return AddWordFromDictionary(PersistentAutoDictionary, Data, Size, MinSize, MaxSize);
     }
 
     size_t MutationDispatcher::AddWordFromDictionary(Dictionary& D, uint8_t* Data,
-        size_t Size, size_t MaxSize) {
+                                                     size_t Size, size_t MinSize, size_t MaxSize) {
         if (Size > MaxSize) return 0;
         if (D.empty()) return 0;
         DictionaryEntry& DE = D[Rand(D.size())];
         Size = ApplyDictionaryEntry(Data, Size, MaxSize, DE);
-        if (!Size) return 0;
+        if (!Size || Size < MinSize) return 0;
         DE.IncUseCount();
         CurrentDictionaryEntrySequence.push_back(&DE);
         return Size;
@@ -435,8 +434,8 @@ namespace fuzzer {
     // Inserts part of From[0,ToSize) into To.
     // Returns new size of To on success or 0 on failure.
     size_t MutationDispatcher::InsertPartOf(const uint8_t* From, size_t FromSize,
-        uint8_t* To, size_t ToSize,
-        size_t MaxToSize) {
+                                            uint8_t* To, size_t ToSize,
+                                            size_t MinSize, size_t MaxToSize) {
         if (ToSize >= MaxToSize) return 0;
         size_t AvailableSpace = MaxToSize - ToSize;
         size_t MaxCopySize = std::min(AvailableSpace, FromSize);
@@ -460,18 +459,18 @@ namespace fuzzer {
     }
 
     size_t MutationDispatcher::Mutate_CopyPart(uint8_t* Data, size_t Size,
-        size_t MaxSize) {
+                                               size_t MinSize, size_t MaxSize) {
         if (Size > MaxSize || Size == 0) return 0;
         // If Size == MaxSize, `InsertPartOf(...)` will
         // fail so there's no point using it in this case.
         if (Size == MaxSize || Rand.RandBool())
             return CopyPartOf(Data, Size, Data, Size);
         else
-            return InsertPartOf(Data, Size, Data, Size, MaxSize);
+            return InsertPartOf(Data, Size, Data, Size, MinSize, MaxSize);
     }
 
     size_t MutationDispatcher::Mutate_ChangeASCIIInteger(uint8_t* Data, size_t Size,
-        size_t MaxSize) {
+                                                         size_t MinSize, size_t MaxSize) {
         if (Size > MaxSize) return 0;
         size_t B = Rand(Size);
         while (B < Size && !isdigit(Data[B])) B++;
@@ -531,8 +530,9 @@ namespace fuzzer {
     }
 
     size_t MutationDispatcher::Mutate_ChangeBinaryInteger(uint8_t* Data,
-        size_t Size,
-        size_t MaxSize) {
+                                                          size_t Size,
+                                                          size_t MinSize,
+                                                          size_t MaxSize) {
         if (Size > MaxSize) return 0;
         switch (Rand(4)) {
         case 3: return ChangeBinaryInteger<uint64_t>(Data, Size, Rand);
@@ -545,7 +545,7 @@ namespace fuzzer {
     }
 
     size_t MutationDispatcher::Mutate_CrossOver(uint8_t* Data, size_t Size,
-        size_t MaxSize) {
+                                                size_t MinSize, size_t MaxSize) {
         if (Size > MaxSize) return 0;
         if (Size == 0) return 0;
         if (!CrossOverWith) return 0;
@@ -559,7 +559,7 @@ namespace fuzzer {
             NewSize = CrossOver(Data, Size, O.data(), O.size(), U.data(), U.size());
             break;
         case 1:
-            NewSize = InsertPartOf(O.data(), O.size(), U.data(), U.size(), MaxSize);
+            NewSize = InsertPartOf(O.data(), O.size(), U.data(), U.size(), MinSize, MaxSize);
             if (!NewSize)
                 NewSize = CopyPartOf(O.data(), O.size(), U.data(), U.size());
             break;
@@ -570,6 +570,7 @@ namespace fuzzer {
         }
         assert(NewSize > 0 && "CrossOver returned empty unit");
         assert(NewSize <= MaxSize && "CrossOver returned overisized unit");
+        if (NewSize < MinSize) return 0;
         memcpy(Data, U.data(), NewSize);
         return NewSize;
     }
@@ -620,27 +621,28 @@ namespace fuzzer {
         }
     }
 
-    size_t MutationDispatcher::Mutate(uint8_t* Data, size_t Size, size_t MaxSize) {
-        return MutateImpl(Data, Size, MaxSize, Mutators);
+    size_t MutationDispatcher::Mutate(uint8_t* Data, size_t Size, size_t MinSize, size_t MaxSize) {
+        return MutateImpl(Data, Size, MinSize, MaxSize, Mutators);
     }
 
     size_t MutationDispatcher::DefaultMutate(uint8_t* Data, size_t Size,
-        size_t MaxSize) {
-        return MutateImpl(Data, Size, MaxSize, DefaultMutators);
+                                             size_t MinSize, size_t MaxSize) {
+        return MutateImpl(Data, Size, MinSize, MaxSize, DefaultMutators);
     }
 
     // Mutates Data in place, returns new size.
     size_t MutationDispatcher::MutateImpl(uint8_t* Data, size_t Size,
-        size_t MaxSize,
-        Vector<Mutator>& Mutators) {
+                                          size_t MinSize,
+                                          size_t MaxSize,
+                                          Vector<Mutator>& Mutators) {
         assert(MaxSize > 0);
         // Some mutations may fail (e.g. can't insert more bytes if Size == MaxSize),
         // in which case they will return 0.
         // Try several times before returning un-mutated data.
         for (int Iter = 0; Iter < 100; Iter++) {
             auto M = Mutators[Rand(Mutators.size())];
-            size_t NewSize = (this->*(M.Fn))(Data, Size, MaxSize);
-            if (NewSize && NewSize <= MaxSize) {
+            size_t NewSize = (this->*(M.Fn))(Data, Size, MinSize, MaxSize);
+            if (NewSize && NewSize <= MaxSize && NewSize >= MinSize) {
                 if (Options.OnlyASCII)
                     ToASCII(Data, NewSize);
                 CurrentMutatorSequence.push_back(M);
@@ -653,8 +655,9 @@ namespace fuzzer {
 
     // Mask represents the set of Data bytes that are worth mutating.
     size_t MutationDispatcher::MutateWithMask(uint8_t* Data, size_t Size,
-        size_t MaxSize,
-        const Vector<uint8_t>& Mask) {
+                                              size_t MinSize,
+                                              size_t MaxSize,
+                                              const Vector<uint8_t>& Mask) {
         size_t MaskedSize = std::min(Size, Mask.size());
         // * Copy the worthy bytes into a temporary array T
         // * Mutate T
@@ -670,7 +673,7 @@ namespace fuzzer {
 
         if (!OneBits) return 0;
         assert(!T.empty());
-        size_t NewSize = Mutate(T.data(), OneBits, OneBits);
+        size_t NewSize = Mutate(T.data(), OneBits, MinSize, OneBits);
         assert(NewSize <= OneBits);
         (void)NewSize;
         // Even if NewSize < OneBits we still use all OneBits bytes.

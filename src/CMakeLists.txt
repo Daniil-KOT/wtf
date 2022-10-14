@@ -15,11 +15,18 @@ include_directories(${CMAKE_CURRENT_LIST_DIR}/libs/BLAKE3/c)
 include_directories(${CMAKE_CURRENT_LIST_DIR}/libs/CLI11/include)
 include_directories(${CMAKE_CURRENT_LIST_DIR}/libs/fmt/include)
 include_directories(${CMAKE_CURRENT_LIST_DIR}/libs/yas/include)
+include_directories(${CMAKE_CURRENT_LIST_DIR}/libs/capstone/include)
 
 file(
     GLOB_RECURSE
     wtf_srcfiles
-    wtf/*.cc
+    wtf/backend/*.cc
+    wtf/base/*.cc
+    wtf/client/*.cc
+    wtf/globals/*.cc
+    wtf/handles/*.cc
+    wtf/modules/*.cc
+    wtf/server/*.cc
 )
 
 file(
@@ -125,10 +132,11 @@ endif(WIN32)
 target_precompile_headers(
     wtf
     PRIVATE
-    wtf/pch.h
+    wtf/globals/pch.h
 )
 
 target_link_libraries(
     wtf
     ${CMAKE_CURRENT_LIST_DIR}/libs/bochscpu-bins/lib/${CMAKE_SHARED_MODULE_PREFIX}bochscpu_ffi${CMAKE_STATIC_LIBRARY_SUFFIX}
+    ${CMAKE_CURRENT_LIST_DIR}/libs/capstone/${CMAKE_SHARED_MODULE_PREFIX}capstone${CMAKE_STATIC_LIBRARY_SUFFIX}
 )

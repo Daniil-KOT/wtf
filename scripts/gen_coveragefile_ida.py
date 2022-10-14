@@ -2428,12 +2428,12 @@ class PE(object):
         """
 
         if fname is not None:
-            stat = os.stat(fname)
+            stat = os.stat("C:/wtf/test/x64/Debug/test.exe")
             if stat.st_size == 0:
                 raise PEFormatError('The file is empty')
             fd = None
             try:
-                fd = open(fname, 'rb')
+                fd = open("C:/wtf/test/x64/Debug/test.exe", 'rb')
                 self.fileno = fd.fileno()
                 if hasattr(mmap, 'MAP_PRIVATE'):
                     # Unix
